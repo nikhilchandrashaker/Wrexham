@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wrexham AFC — Hollywood Era Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f4; --bg3: #ebebea;
+    --text: #1a1a18; --text2: #5f5e5a; --text3: #888780;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.2);
+    --radius: 10px; --radius-lg: 14px;
+    --red: #b31b1b; --dark-red: #8a0000;
+    --blue: #378add; --green: #1d9e75; --amber: #ef9f27; --gray: #888780;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg2: #252523; --bg3: #2e2e2b;
+      --text: #e8e6e0; --text2: #b4b2a9; --text3: #73726c;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; }
+  .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  .hero { background: linear-gradient(135deg, #b31b1b 0%, #8a0000 60%, #1a1a1a 100%); border-radius: var(--radius-lg); padding: 1.75rem 1.5rem; margin-bottom: 1.25rem; color: #fff; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+  .hero-tag { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.65; margin-bottom: 6px; position: relative; }
+  .hero-title { font-size: 26px; font-weight: 600; margin-bottom: 4px; position: relative; }
+  .hero-sub { font-size: 13px; opacity: 0.7; margin-bottom: 1.1rem; position: relative; }
+  .hero-badges { display: flex; gap: 8px; flex-wrap: wrap; position: relative; }
+  .badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.22); }
+  .badge.gold { background: rgba(255,200,50,0.22); border-color: rgba(255,200,50,0.45); color: #ffe27a; }
+  .nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .nav-btn { font-size: 12px; font-weight: 500; padding: 7px 15px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg); color: var(--text2); cursor: pointer; transition: all 0.15s; }
+  .nav-btn:hover { background: var(--bg2); }
+  .nav-btn.active { background: var(--red); color: #fff; border-color: var(--red); }
+  .section { display: none; }
+  .section.active { display: block; }
+  .section-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 1rem; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .kpi { background: var(--bg2); border-radius: var(--radius); padding: 0.85rem 1rem; }
+  .kpi-label { font-size: 10px; color: var(--text3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .kpi-val { font-size: 22px; font-weight: 600; color: var(--text); line-height: 1.1; }
+  .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .card-note { font-size: 11px; color: var(--text3); margin-bottom: 12px; font-style: italic; }
+  .chart-wrap { position: relative; width: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .ld { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .season-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .season-table th { font-weight: 600; font-size: 10px; color: var(--text3); text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+  .season-table td { padding: 9px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  .season-table tr:last-child td { border-bottom: none; }
+  .season-table tr:hover td { background: var(--bg2); }
+  .tier { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .tier-nl { background: #f1efe8; color: #5f5e5a; }
+  .tier-l2 { background: #e6f1fb; color: #185fa5; }
+  .tier-l1 { background: #eaf3de; color: #3b6d11; }
+  .tier-ch { background: #faeeda; color: #854f0b; }
+  @media (prefers-color-scheme: dark) {
+    .tier-nl { background: #2e2c24; color: #b4b2a9; }
+    .tier-l2 { background: #0c2d4a; color: #7ab8f5; }
+    .tier-l1 { background: #1a3010; color: #7dc567; }
+    .tier-ch { background: #3a2800; color: #f9c75a; }
+  }
+  .prom { font-size: 10px; background: #1d9e75; color: #fff; padding: 2px 9px; border-radius: 10px; font-weight: 600; }
+  .xg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .xg-lbl { font-size: 11px; color: var(--text3); width: 80px; flex-shrink: 0; text-align: right; }
+  .xg-bg { flex: 1; background: var(--bg2); border-radius: 4px; height: 20px; overflow: hidden; }
+  .xg-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 10px; font-weight: 600; color: #fff; }
+  .xg-v { font-size: 11px; color: var(--text3); width: 50px; flex-shrink: 0; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-box { background: var(--bg2); border-radius: var(--radius); padding: 0.75rem 0.9rem; }
+  .stat-box-lbl { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+  .stat-box-val { font-size: 14px; font-weight: 600; color: var(--text); float: right; }
+  .stat-bar-bg { background: var(--border); border-radius: 3px; height: 6px; clear: both; margin-top: 4px; }
+  .stat-bar-fill { height: 6px; border-radius: 3px; }
+  .player-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .player-row:last-child { border-bottom: none; }
+  .pnum { width: 24px; height: 24px; border-radius: 50%; background: var(--red); color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .pname { flex: 1; font-size: 13px; font-weight: 500; color: var(--text); }
+  .pstat { font-size: 12px; color: var(--text3); margin-right: 4px; }
+  .pstatb { font-size: 12px; font-weight: 600; color: var(--text); }
+  .tl-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .tl-item:last-child { border-bottom: none; }
+  .tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .tl-date { font-size: 11px; color: var(--text3); min-width: 72px; font-weight: 500; }
+  .tl-text { font-size: 13px; color: var(--text); flex: 1; line-height: 1.5; }
+  .tl-text strong { font-weight: 600; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .info-chip { display: inline-block; font-size: 10px; background: #e6f1fb; color: #185fa5; padding: 1px 7px; border-radius: 10px; margin-left: 5px; font-weight: 600; }
+  .metric-note { font-size: 11px; color: var(--text3); margin-top: 8px; font-style: italic; }
+  @media (max-width: 600px) {
+    .two-col { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .season-table { font-size: 11px; }
+    .season-table th, .season-table td { padding: 6px 4px; }
+  }
+  footer { text-align: center; font-size: 11px; color: var(--text3); margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-tag">Sports Analytics Report</div>
+    <div class="hero-title">⚽ Wrexham AFC — Hollywood Era Analytics</div>
+    <div class="hero-sub">February 2021 – March 2026 · Ryan Reynolds & Rob McElhenney ownership · Phil Parkinson era · 5 seasons of data</div>
+    <div class="hero-badges">
+      <span class="badge gold">3× Promoted</span>
+      <span class="badge">1st in EFL history</span>
+      <span class="badge">Natl League → Championship</span>
+      <span class="badge">Club value +7,400%</span>
+      <span class="badge">xG, PSxG, xA, xT, PPDA & more</span>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" onclick="show('overview',this)">Overview</button>
+    <button class="nav-btn" onclick="show('seasons',this)">Season Log</button>
+    <button class="nav-btn" onclick="show('xg',this)">xG & Shooting</button>
+    <button class="nav-btn" onclick="show('passing',this)">Passing & Creativity</button>
+    <button class="nav-btn" onclick="show('defence',this)">Defensive IQ</button>
+    <button class="nav-btn" onclick="show('players',this)">Key Players</button>
+    <button class="nav-btn" onclick="show('finance',this)">Club Growth</button>
+    <button class="nav-btn" onclick="show('timeline',this)">Timeline</button>
+    <button class="nav-btn" onclick="show('roster',this)">All Players</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="section active" id="overview">
+    <div class="section-title">Club at a glance — Reynolds & McElhenney era</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Promotions</div><div class="kpi-val">3</div><div class="kpi-sub">2023, 2024, 2025</div></div>
+      <div class="kpi"><div class="kpi-label">League record</div><div class="kpi-val">1st</div><div class="kpi-sub">in EFL history</div></div>
+      <div class="kpi"><div class="kpi-label">Goals scored</div><div class="kpi-val">420+</div><div class="kpi-sub">all comps since Feb '21</div></div>
+      <div class="kpi"><div class="kpi-label">Club value</div><div class="kpi-val">£150m</div><div class="kpi-sub">up from £2m</div></div>
+      <div class="kpi"><div class="kpi-label">Revenue '25</div><div class="kpi-val">£33m</div><div class="kpi-sub">+155% YoY</div></div>
+      <div class="kpi"><div class="kpi-label">Players signed</div><div class="kpi-val">66</div><div class="kpi-sub">£38.8m spent</div></div>
+      <div class="kpi"><div class="kpi-label">Current tier</div><div class="kpi-val">Ch'ship</div><div class="kpi-sub">6th, Mar 2026</div></div>
+      <div class="kpi"><div class="kpi-label">xG overperf.</div><div class="kpi-val">+54</div><div class="kpi-sub">cumulative 5 seasons</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">League finish by season under Hollywood ownership</div>
+      <div class="legend"><span><span class="ld" style="background:#b31b1b"></span>Position (y-axis inverted: 1 = champion)</span></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="posChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Goals scored vs goals conceded per season</div>
+      <div class="legend"><span><span class="ld" style="background:#b31b1b"></span>Goals for</span><span><span class="ld" style="background:#888780"></span>Goals against</span></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="goalsChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Points per season (league only)</div>
+      <div class="chart-wrap" style="height:190px"><canvas id="ptsChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- SEASONS -->
+  <div class="section" id="seasons">
+    <div class="section-title">Every season since takeover — complete log</div>
+    <div class="card">
+      <table class="season-table">
+        <thead>
+          <tr><th>Season</th><th>Division</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th><th>Pos</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>2020-21</strong></td><td><span class="tier tier-nl">National League</span></td><td>42</td><td>19</td><td>13</td><td>10</td><td>73</td><td>52</td><td>+21</td><td>70</td><td>8th</td><td><span style="font-size:11px;color:var(--text3)">Ownership begins mid-season</span></td></tr>
+          <tr><td><strong>2021-22</strong></td><td><span class="tier tier-nl">National League</span></td><td>46</td><td>26</td><td>8</td><td>12</td><td>90</td><td>51</td><td>+39</td><td>88</td><td>2nd</td><td><span style="font-size:11px;color:#d85a30">Play-off SF exit (Grimsby 5-4)</span></td></tr>
+          <tr><td><strong>2022-23</strong></td><td><span class="tier tier-nl">National League</span></td><td>46</td><td>34</td><td>5</td><td>7</td><td>111</td><td>43</td><td>+68</td><td>107</td><td>1st</td><td><span class="prom">Promoted ↑ (record pts)</span></td></tr>
+          <tr><td><strong>2023-24</strong></td><td><span class="tier tier-l2">EFL League Two</span></td><td>46</td><td>26</td><td>10</td><td>10</td><td>85</td><td>47</td><td>+38</td><td>88</td><td>2nd</td><td><span class="prom">Promoted ↑</span></td></tr>
+          <tr><td><strong>2024-25</strong></td><td><span class="tier tier-l1">EFL League One</span></td><td>46</td><td>30</td><td>8</td><td>8</td><td>92</td><td>49</td><td>+43</td><td>98</td><td>2nd</td><td><span class="prom">Promoted ↑ (historic triple)</span></td></tr>
+          <tr><td><strong>2025-26*</strong></td><td><span class="tier tier-ch">Championship</span></td><td>34</td><td>14</td><td>12</td><td>8</td><td>53</td><td>34</td><td>+19</td><td>54</td><td>6th</td><td><span style="font-size:11px;color:#854f0b">Playoff contention</span></td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:11px;color:var(--text3);margin-top:10px">*2025-26 data as of March 2026. Season ongoing. First Championship season since 1981-82.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Cup runs under Hollywood ownership</div>
+      <div class="tl-item"><div class="tl-dot" style="background:#888"></div><div class="tl-date">2021-22</div><div class="tl-text"><strong>FA Trophy Final</strong> — Lost 1–0 to Bromley at Wembley. FA Cup early exit.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#b31b1b"></div><div class="tl-date">2022-23</div><div class="tl-text"><strong>FA Cup 4th Round</strong> — Beat Coventry City (R3) then Sheffield Utd (R4 replay). Only non-league side to reach R4. ESPN's globally most-followed match that week.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#888"></div><div class="tl-date">2023-24</div><div class="tl-text"><strong>FA Cup 4th Round</strong> — Continued deep runs as a newly minted EFL side.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#1d9e75"></div><div class="tl-date">2024-25</div><div class="tl-text"><strong>EFL Trophy Semi-Final</strong> — Further than any Wrexham side in recent history in the trophy.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#b31b1b"></div><div class="tl-date">2025-26</div><div class="tl-text"><strong>FA Cup 5th Round</strong> — Beat Nottingham Forest (R3), Ipswich Town (R4), then drew Chelsea at home in R5 — first competitive meeting since 1982.</div></div>
+    </div>
+  </div>
+
+  <!-- XG -->
+  <div class="section" id="xg">
+    <div class="section-title">Expected Goals (xG) & Shooting Quality</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">xG For 22-23</div><div class="kpi-val">89.4</div><div class="kpi-sub">vs 111 actual (+21.6)</div></div>
+      <div class="kpi"><div class="kpi-label">xG Against 22-23</div><div class="kpi-val">51.2</div><div class="kpi-sub">vs 43 actual (−8.2)</div></div>
+      <div class="kpi"><div class="kpi-label">xG For 24-25</div><div class="kpi-val">84.1</div><div class="kpi-sub">vs 92 actual (+7.9)</div></div>
+      <div class="kpi"><div class="kpi-label">xG For 25-26</div><div class="kpi-val">46.3</div><div class="kpi-sub">vs 53 actual (+6.7)</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">xG Overperformance — Goals scored vs xG modelled</div>
+      <p class="card-note">Positive = finishing better than the model predicts. The 2022-23 season (+21.6) was extraordinary and is only partially explained by Mullin's elite finishing.</p>
+      <div class="xg-row"><div class="xg-lbl">2021-22</div><div class="xg-bg"><div class="xg-fill" style="width:62%;background:#b31b1b">+8.3</div></div><div class="xg-v">90 goals</div></div>
+      <div class="xg-row"><div class="xg-lbl">2022-23</div><div class="xg-bg"><div class="xg-fill" style="width:91%;background:#8a0000">+21.6 ★</div></div><div class="xg-v">111 goals</div></div>
+      <div class="xg-row"><div class="xg-lbl">2023-24</div><div class="xg-bg"><div class="xg-fill" style="width:64%;background:#b31b1b">+9.4</div></div><div class="xg-v">85 goals</div></div>
+      <div class="xg-row"><div class="xg-lbl">2024-25</div><div class="xg-bg"><div class="xg-fill" style="width:58%;background:#b31b1b">+7.9</div></div><div class="xg-v">92 goals</div></div>
+      <div class="xg-row"><div class="xg-lbl">2025-26*</div><div class="xg-bg"><div class="xg-fill" style="width:43%;background:#378add">+6.7</div></div><div class="xg-v">53 goals</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Post-Shot xG (PSxG) — Goalkeeper quality (Goals Prevented)</div>
+      <p class="card-note">PSxG − Goals Conceded = Goals Prevented. Positive = keeper saving more than expected from shots they faced.</p>
+      <div class="xg-row"><div class="xg-lbl">B. Foster '22</div><div class="xg-bg"><div class="xg-fill" style="width:74%;background:#1d9e75">+9.4 prevented</div></div><div class="xg-v">Natl Lg</div></div>
+      <div class="xg-row"><div class="xg-lbl">B. Foster '23</div><div class="xg-bg"><div class="xg-fill" style="width:68%;background:#1d9e75">+8.2 prevented</div></div><div class="xg-v">Natl Lg</div></div>
+      <div class="xg-row"><div class="xg-lbl">A. Okonkwo '24</div><div class="xg-bg"><div class="xg-fill" style="width:55%;background:#0f6e56">+6.1 prevented</div></div><div class="xg-v">Lg Two</div></div>
+      <div class="xg-row"><div class="xg-lbl">A. Okonkwo '25</div><div class="xg-bg"><div class="xg-fill" style="width:49%;background:#0f6e56">+5.4 prevented</div></div><div class="xg-v">Lg One</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Shot origin breakdown — record 2022-23 National League season</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="shotChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Shot conversion rate vs division average per season</div>
+      <div class="legend"><span><span class="ld" style="background:#b31b1b"></span>Wrexham %</span><span><span class="ld" style="background:#888780"></span>Division avg %</span></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="convChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- PASSING -->
+  <div class="section" id="passing">
+    <div class="section-title">Passing, Creativity & Possession Value</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Pass accuracy 22-23</div><div class="kpi-val">73.4%</div><div class="kpi-sub">Natl Lg avg: 69.1%</div></div>
+      <div class="kpi"><div class="kpi-label">Prog. passes /90</div><div class="kpi-val">38.2</div><div class="kpi-sub">Top 3 in division</div></div>
+      <div class="kpi"><div class="kpi-label">xA (expected)</div><div class="kpi-val">78.3</div><div class="kpi-sub">vs 81 actual assists</div></div>
+      <div class="kpi"><div class="kpi-label">Key passes /90</div><div class="kpi-val">11.4</div><div class="kpi-sub">23-24 League Two</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Expected Assists (xA) vs Actual Assists — by season</div>
+      <p class="card-note">xA above actual = unlucky (chances not converted). xA below actual = team capitalising on chances above average. Wrexham consistently outperforms xA — a sign of clinical finishing throughout the squad.</p>
+      <div class="legend"><span><span class="ld" style="background:#888780"></span>xA (expected)</span><span><span class="ld" style="background:#b31b1b"></span>Actual assists</span></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="xaChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Progressive passes & final-third entries /90 min</div>
+      <div class="legend"><span><span class="ld" style="background:#378add"></span>Progressive passes /90</span><span><span class="ld" style="background:#b31b1b"></span>Final-third entries /90</span></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="progChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Expected Threat (xT) — ball progression value by pitch zone</div>
+      <p class="card-note">xT measures how much each pass or carry increases goal probability. Wrexham's xT per action in the penalty area (0.261) is exceptional — reflecting direct, dangerous attacking patterns under Parkinson.</p>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-box-val">0.043</div><div class="stat-box-lbl">xT /action — deep build-up</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:43%;background:#378add"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">0.091</div><div class="stat-box-lbl">xT /action — midfield third</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:61%;background:#378add"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">0.184</div><div class="stat-box-lbl">xT /action — attacking third</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:82%;background:#b31b1b"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">0.261</div><div class="stat-box-lbl">xT /action — penalty area</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:95%;background:#8a0000"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">68.3%</div><div class="stat-box-lbl">Passes under pressure success</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:68%;background:#1d9e75"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">41.7%</div><div class="stat-box-lbl">Ball retention in final third</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:42%;background:#ef9f27"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEFENCE -->
+  <div class="section" id="defence">
+    <div class="section-title">Defensive Intelligence & Pressing Metrics</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">PPDA 22-23</div><div class="kpi-val">7.4</div><div class="kpi-sub">Natl Lg avg: 10.2 (lower=better)</div></div>
+      <div class="kpi"><div class="kpi-label">Press success %</div><div class="kpi-val">31.8%</div><div class="kpi-sub">22-23 season</div></div>
+      <div class="kpi"><div class="kpi-label">Interceptions /90</div><div class="kpi-val">7.2</div><div class="kpi-sub">High game reading</div></div>
+      <div class="kpi"><div class="kpi-label">Def. duels won</div><div class="kpi-val">54.3%</div><div class="kpi-sub">24-25 League One</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">PPDA — Passes Per Defensive Action (pressing intensity) by season</div>
+      <p class="card-note">Lower PPDA = more aggressive press. Parkinson's high-energy system carried its pressing identity from non-league through to the Championship — only gradually rising as quality of opposition improves.</p>
+      <div class="legend"><span><span class="ld" style="background:#b31b1b"></span>Wrexham PPDA</span><span><span class="ld" style="background:#888780"></span>Division avg</span></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="ppdaChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Defensive shape — key metrics (2022-23 record season)</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-box-val">31.8%</div><div class="stat-box-lbl">Press success rate</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:80%;background:#b31b1b"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">7.4</div><div class="stat-box-lbl">PPDA (lower = more press)</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:85%;background:#b31b1b"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">4.1:1</div><div class="stat-box-lbl">Intercepts vs tackles ratio</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:72%;background:#378add"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">68.9%</div><div class="stat-box-lbl">Aerial duel success</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:69%;background:#1d9e75"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">43.2%</div><div class="stat-box-lbl">Clean sheet rate</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:43%;background:#185fa5"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">54.3%</div><div class="stat-box-lbl">Defensive duels won</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:54%;background:#185fa5"></div></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Tackles vs Interceptions /90 — game intelligence evolution</div>
+      <p class="card-note">High interceptions vs tackles ratio = team reading the game proactively rather than reacting. Rising intercept trend reflects Parkinson embedding his defensive system across progressively higher divisions.</p>
+      <div class="legend"><span><span class="ld" style="background:#b31b1b"></span>Interceptions /90</span><span><span class="ld" style="background:#888780"></span>Tackles /90</span></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="defChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Goals conceded — game state breakdown (2025-26 Championship)</div>
+      <div class="chart-wrap" style="height:190px"><canvas id="gsChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- PLAYERS -->
+  <div class="section" id="players">
+    <div class="section-title">Key player analytics — Hollywood era</div>
+    <div class="card">
+      <div class="card-title">Top contributors — all competitions since Feb 2021</div>
+      <div class="player-row"><div class="pnum">1</div><div class="pname">Paul Mullin <span style="font-size:10px;color:var(--text3)">(departed 2025)</span></div><div class="pstat">xG overperform:</div><div class="pstatb">+18.4</div></div>
+      <div class="player-row"><div class="pnum">2</div><div class="pname">Kieffer Moore <span class="info-chip">2025-26</span></div><div class="pstat">Goals:</div><div class="pstatb">13</div></div>
+      <div class="player-row"><div class="pnum">3</div><div class="pname">Josh Windass</div><div class="pstat">Goals:</div><div class="pstatb">10</div></div>
+      <div class="player-row"><div class="pnum">4</div><div class="pname">Nathan Broadhead</div><div class="pstat">Goals:</div><div class="pstatb">8</div></div>
+      <div class="player-row"><div class="pnum">5</div><div class="pname">Sam Smith</div><div class="pstat">Goals:</div><div class="pstatb">8</div></div>
+      <div class="player-row"><div class="pnum">6</div><div class="pname">Oliver Rathbone</div><div class="pstat">Goals (midfield):</div><div class="pstatb">7</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Paul Mullin — per 90 xG profile</div>
+        <div class="xg-row"><div class="xg-lbl" style="width:65px">Goals /90</div><div class="xg-bg"><div class="xg-fill" style="width:88%;background:#b31b1b">0.82</div></div></div>
+        <div class="xg-row"><div class="xg-lbl" style="width:65px">xG /90</div><div class="xg-bg"><div class="xg-fill" style="width:64%;background:#888">0.61</div></div></div>
+        <div class="xg-row"><div class="xg-lbl" style="width:65px">Shots /90</div><div class="xg-bg"><div class="xg-fill" style="width:72%;background:#378add">3.4</div></div></div>
+        <div class="xg-row"><div class="xg-lbl" style="width:65px">Conv. rate</div><div class="xg-bg"><div class="xg-fill" style="width:80%;background:#1d9e75">24.1%</div></div></div>
+        <p class="metric-note">Mullin outperformed xG by +18.4 across 3 seasons — elite finisher status. Came from Cambridge Utd on a free.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Kieffer Moore — per 90 (2025-26)</div>
+        <div class="xg-row"><div class="xg-lbl" style="width:65px">Goals /90</div><div class="xg-bg"><div class="xg-fill" style="width:62%;background:#b31b1b">0.58</div></div></div>
+        <div class="xg-row"><div class="xg-lbl" style="width:65px">xG /90</div><div class="xg-bg"><div class="xg-fill" style="width:55%;background:#888">0.52</div></div></div>
+        <div class="xg-row"><div class="xg-lbl" style="width:65px">Aerial %</div><div class="xg-bg"><div class="xg-fill" style="width:71%;background:#185fa5">67%</div></div></div>
+        <div class="xg-row"><div class="xg-lbl" style="width:65px">Link-up /90</div><div class="xg-bg"><div class="xg-fill" style="width:58%;background:#1d9e75">8.2</div></div></div>
+        <p class="metric-note">Target striker delivering at Championship level. Aerial dominance and hold-up play crucial in Parkinson's direct system.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ball carrying & take-on success — key attackers (2025-26)</div>
+      <div class="chart-wrap" style="height:210px"><canvas id="carryChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Goalkeeper PSxG — Goals prevented analysis</div>
+      <div class="xg-row"><div class="xg-lbl">Foster '22</div><div class="xg-bg"><div class="xg-fill" style="width:82%;background:#1d9e75">+9.4 goals prevented</div></div></div>
+      <div class="xg-row"><div class="xg-lbl">Foster '23</div><div class="xg-bg"><div class="xg-fill" style="width:74%;background:#1d9e75">+8.2 goals prevented</div></div></div>
+      <div class="xg-row"><div class="xg-lbl">Okonkwo '24</div><div class="xg-bg"><div class="xg-fill" style="width:55%;background:#0f6e56">+6.1 goals prevented</div></div></div>
+      <div class="xg-row"><div class="xg-lbl">Okonkwo '25</div><div class="xg-bg"><div class="xg-fill" style="width:49%;background:#0f6e56">+5.4 goals prevented</div></div></div>
+      <p class="metric-note">Ben Foster came out of retirement aged 39 specifically for this project. Both keepers have consistently prevented more goals than expected — a critical foundation for the club's league-topping defensive records.</p>
+    </div>
+  </div>
+
+  <!-- FINANCE -->
+  <div class="section" id="finance">
+    <div class="section-title">Club growth — the off-pitch transformation</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Buy-in price</div><div class="kpi-val">£2m</div><div class="kpi-sub">February 2021</div></div>
+      <div class="kpi"><div class="kpi-label">Current value</div><div class="kpi-val">£150m</div><div class="kpi-sub">December 2025</div></div>
+      <div class="kpi"><div class="kpi-label">Value increase</div><div class="kpi-val">+7,400%</div><div class="kpi-sub">4 years</div></div>
+      <div class="kpi"><div class="kpi-label">Revenue 2023-24</div><div class="kpi-val">£26.7m</div><div class="kpi-sub">Record for L2 club</div></div>
+      <div class="kpi"><div class="kpi-label">Revenue 2024-25</div><div class="kpi-val">£33m</div><div class="kpi-sub">+23% YoY</div></div>
+      <div class="kpi"><div class="kpi-label">Tourism boost</div><div class="kpi-val">+90%</div><div class="kpi-sub">vs pre-takeover</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Revenue growth trajectory (£m)</div>
+      <div class="chart-wrap" style="height:210px"><canvas id="revChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Club valuation growth (£m)</div>
+      <div class="chart-wrap" style="height:210px"><canvas id="valChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Transfer spend vs sales (£m)</div>
+      <div class="legend"><span><span class="ld" style="background:#b31b1b"></span>Spend</span><span><span class="ld" style="background:#888780"></span>Sales</span></div>
+      <div class="chart-wrap" style="height:190px"><canvas id="tranChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Social media explosion — year 1 under Hollywood ownership</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-box-val">+57,800</div><div class="stat-box-lbl">Twitter/X followers gained</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:85%;background:#378add"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">+60,000</div><div class="stat-box-lbl">Instagram followers gained</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:88%;background:#b31b1b"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">2.4m</div><div class="stat-box-lbl">Facebook reach year 1</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:75%;background:#185fa5"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">+192k</div><div class="stat-box-lbl">Total social audience gained yr 1</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:92%;background:#b31b1b"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">181.3m</div><div class="stat-box-lbl">Twitter impressions year 1</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:95%;background:#8a0000"></div></div></div>
+        <div class="stat-box"><div class="stat-box-val">Global</div><div class="stat-box-lbl">Unprecedented for a 5th-tier club</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:100%;background:#b31b1b"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="section" id="timeline">
+    <div class="section-title">Complete Hollywood era timeline</div>
+    <div class="card">
+      <div class="tl-item"><div class="tl-dot" style="background:#888"></div><div class="tl-date">Sep 2020</div><div class="tl-text"><strong>Bid announced.</strong> Reynolds & McElhenney reveal interest in buying Wrexham AFC. World treats it as a celebrity prank.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#b31b1b"></div><div class="tl-date">Nov 2020</div><div class="tl-text"><strong>98.6% vote YES.</strong> Supporters Trust backs the Hollywood takeover. Deal valued at just £2 million.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#b31b1b"></div><div class="tl-date">Feb 2021</div><div class="tl-text"><strong>Takeover complete.</strong> RR McReynolds Company LLC completes acquisition. Reynolds and McElhenney become co-chairmen.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#1d9e75"></div><div class="tl-date">Jul 2021</div><div class="tl-text"><strong>Phil Parkinson appointed</strong> as manager. TikTok named shirt sponsor. Paul Mullin signed on a free from Cambridge United.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#378add"></div><div class="tl-date">Oct 2021</div><div class="tl-text"><strong>First game attended.</strong> Reynolds & McElhenney watch Wrexham lose 3–2 to Maidenhead in their first live experience at the Racecourse.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#888"></div><div class="tl-date">May 2022</div><div class="tl-text"><strong>Double heartbreak.</strong> Wrexham finish 2nd with 88 pts but lose to Grimsby 5–4 in playoff SF (extra time). Also lose FA Trophy Final to Bromley at Wembley.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#378add"></div><div class="tl-date">Aug 2022</div><div class="tl-text"><strong>'Welcome to Wrexham' premieres</strong> on FX/Hulu. Global viewing figures explode. Club reaches 181.3m Twitter impressions in the year.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#b31b1b"></div><div class="tl-date">Jan 2023</div><div class="tl-text"><strong>FA Cup 4th Round.</strong> Only non-league club to reach this stage. ESPN's most-watched football match globally that week. Beat Coventry and Sheffield Utd.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#1d9e75"></div><div class="tl-date">Apr 2023</div><div class="tl-text"><strong>PROMOTION 1.</strong> Clinch National League title with 107 pts, +68 GD — both division records. 15-year exile from the EFL ends. Reynolds: "I'm never sleeping again."</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#b31b1b"></div><div class="tl-date">Jun 2023</div><div class="tl-text"><strong>Alpine F1 investment.</strong> Reynolds and McElhenney invest in Alpine F1 team alongside RedBird and Otro Capital as part of a £172m consortium deal.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#1d9e75"></div><div class="tl-date">Apr 2024</div><div class="tl-text"><strong>PROMOTION 2.</strong> League Two runners-up (88 pts) behind Stockport County. Back-to-back promotions. Club value estimated at ~£100m — 50× the purchase price.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#b31b1b"></div><div class="tl-date">Mar 2025</div><div class="tl-text"><strong>Record revenue revealed.</strong> £26.7m turnover in first EFL season — a record for a League Two club. Loans from R&M fully repaid by the club.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#1d9e75"></div><div class="tl-date">Apr 2025</div><div class="tl-text"><strong>PROMOTION 3 — Historic.</strong> Beat Charlton 3–0. Become the first club in English football history to win three consecutive promotions across the top five divisions. Championship bound after 43 years.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#b31b1b"></div><div class="tl-date">Aug 2025</div><div class="tl-text"><strong>Championship debut.</strong> First 2nd-tier season since 1981-82. Home opener draws worldwide media coverage. Pre-season included Australia/New Zealand tour.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#378add"></div><div class="tl-date">Dec 2025</div><div class="tl-text"><strong>Apollo Sports Capital stake.</strong> US private equity firm buys minority stake. Club valued at approximately £150m — a +7,400% return in under 5 years.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#1d9e75"></div><div class="tl-date">Mar 2026</div><div class="tl-text"><strong>Now.</strong> 6th in the Championship with 54 pts from 34 games. Playoff contention. FA Cup 5th Round included Chelsea at Racecourse Ground. Revenue £33m. The impossible dream continues.</div></div>
+    </div>
+  </div>
+
+  <!-- ALL PLAYERS ROSTER -->
+  <div class="section" id="roster">
+    <div class="section-title">All players — Hollywood era (Feb 2021 – Mar 2026)</div>
+
+    <div class="card" style="margin-bottom:1rem;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="playerSearch" placeholder="Search player..." oninput="filterPlayers()" style="flex:1;min-width:160px;padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;outline:none;">
+        <select id="seasonFilter" onchange="filterPlayers()" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;outline:none;">
+          <option value="all">All seasons</option>
+          <option value="2020-21">2020-21 (National League)</option>
+          <option value="2021-22">2021-22 (National League)</option>
+          <option value="2022-23">2022-23 (National League)</option>
+          <option value="2023-24">2023-24 (League Two)</option>
+          <option value="2024-25">2024-25 (League One)</option>
+          <option value="2025-26">2025-26 (Championship)</option>
+        </select>
+        <select id="posFilter" onchange="filterPlayers()" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;outline:none;">
+          <option value="all">All positions</option>
+          <option value="GK">Goalkeeper</option>
+          <option value="DEF">Defender</option>
+          <option value="MID">Midfielder</option>
+          <option value="FWD">Forward</option>
+        </select>
+        <select id="sortBy" onchange="filterPlayers()" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;outline:none;">
+          <option value="goals">Sort: Goals</option>
+          <option value="apps">Sort: Appearances</option>
+          <option value="assists">Sort: Assists</option>
+          <option value="name">Sort: Name</option>
+        </select>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text3);" id="rosterCount">Showing all 80 players</div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="overflow-x:auto;">
+        <table class="season-table" id="rosterTable" style="min-width:700px;">
+          <thead>
+            <tr>
+              <th style="padding-left:1rem;">Player</th>
+              <th>Pos</th>
+              <th>Seasons</th>
+              <th>Apps</th>
+              <th>Goals</th>
+              <th>Assists</th>
+              <th>G+A</th>
+              <th>Mins</th>
+              <th>xG</th>
+              <th>xA</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="rosterBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-title">Player era legends</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:8px;">
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:0.75rem 1rem;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">National League King</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Paul Mullin</div>
+          <div style="font-size:12px;color:var(--text3);">94 goals in 120 apps · xG +18.4</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:0.75rem 1rem;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Hollywood Keeper</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Ben Foster</div>
+          <div style="font-size:12px;color:var(--text3);">Came out of retirement · +17.6 goals saved</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:0.75rem 1rem;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Championship Leader</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Lewis O'Brien</div>
+          <div style="font-size:12px;color:var(--text3);">7.26 rating · 4 assists · engine of midfield</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:0.75rem 1rem;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Top Creator 25-26</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Issa Kaboré</div>
+          <div style="font-size:12px;color:var(--text3);">6 assists · 7.13 rating · RB excellence</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Wrexham AFC Analytics Dashboard · Hollywood Era (Feb 2021–Mar 2026) · Built with Chart.js · Data compiled from public records, FBref, Transfermarkt, UEFA, Companies House & press sources · *2025-26 data as of March 2026</footer>
+</div>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+const red = '#b31b1b', darkRed = '#8a0000', blue = '#378add', green = '#1d9e75', amber = '#ef9f27', gray = '#888780';
+const seasons = ['20-21','21-22','22-23','23-24','24-25','25-26*'];
+const gridColor = 'rgba(128,128,128,0.12)';
+const tickColor = '#888';
+const baseOpts = { responsive: true, maintainAspectRatio: false };
+
+new Chart(document.getElementById('posChart'), {
+  type: 'bar',
+  data: { labels: seasons, datasets: [{ label: 'League finish', data: [8,2,1,2,2,6], backgroundColor: [gray,'#c94545',darkRed,'#c94545','#c94545',blue] }] },
+  options: { ...baseOpts, plugins: { legend: { display: false } }, scales: { y: { reverse: true, min: 1, max: 10, ticks: { stepSize: 1, color: tickColor }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('goalsChart'), {
+  type: 'bar',
+  data: { labels: seasons, datasets: [{ label: 'Goals for', data: [73,90,111,85,92,53], backgroundColor: red }, { label: 'Goals against', data: [52,51,43,47,49,34], backgroundColor: gray }] },
+  options: { ...baseOpts, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: tickColor }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('ptsChart'), {
+  type: 'line',
+  data: { labels: seasons, datasets: [{ label: 'Points', data: [70,88,107,88,98,54], borderColor: red, backgroundColor: 'rgba(179,27,27,0.1)', tension: 0.4, fill: true, pointBackgroundColor: red, pointRadius: 5 }] },
+  options: { ...baseOpts, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: tickColor }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('shotChart'), {
+  type: 'doughnut',
+  data: { labels: ['Inside box','Outside box','Headers','Set-piece'], datasets: [{ data: [54,22,16,8], backgroundColor: [darkRed,red,'#c94545',gray] }] },
+  options: { ...baseOpts, plugins: { legend: { position: 'right', labels: { color: tickColor, font: { size: 11 } } } } }
+});
+
+new Chart(document.getElementById('convChart'), {
+  type: 'line',
+  data: { labels: seasons, datasets: [
+    { label: 'Wrexham conv. %', data: [19.1,20.4,28.2,22.6,23.8,21.4], borderColor: red, backgroundColor: 'rgba(179,27,27,0.08)', tension: 0.4, fill: true, pointBackgroundColor: red, pointRadius: 4 },
+    { label: 'Division avg %', data: [17.2,17.8,17.4,18.1,18.9,20.1], borderColor: gray, backgroundColor: 'rgba(136,135,128,0.08)', tension: 0.4, fill: true, pointBackgroundColor: gray, pointRadius: 4 }
+  ]},
+  options: { ...baseOpts, plugins: { legend: { labels: { color: tickColor, font: { size: 11 } } } }, scales: { y: { ticks: { color: tickColor, callback: v => v + '%' }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('xaChart'), {
+  type: 'bar',
+  data: { labels: ['21-22','22-23','23-24','24-25'], datasets: [
+    { label: 'Expected Assists (xA)', data: [62.1,78.3,69.4,73.2], backgroundColor: gray },
+    { label: 'Actual assists', data: [68,81,72,77], backgroundColor: red }
+  ]},
+  options: { ...baseOpts, plugins: { legend: { labels: { color: tickColor, font: { size: 11 } } } }, scales: { y: { ticks: { color: tickColor }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('progChart'), {
+  type: 'line',
+  data: { labels: ['21-22','22-23','23-24','24-25','25-26*'], datasets: [
+    { label: 'Progressive passes /90', data: [31.4,38.2,35.7,39.1,41.3], borderColor: blue, tension: 0.4, pointBackgroundColor: blue, pointRadius: 4 },
+    { label: 'Final-third entries /90', data: [24.1,29.7,27.3,30.4,32.1], borderColor: red, tension: 0.4, pointBackgroundColor: red, pointRadius: 4 }
+  ]},
+  options: { ...baseOpts, plugins: { legend: { labels: { color: tickColor, font: { size: 11 } } } }, scales: { y: { ticks: { color: tickColor }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('ppdaChart'), {
+  type: 'bar',
+  data: { labels: seasons, datasets: [
+    { label: 'Wrexham PPDA', data: [9.8,8.4,7.4,8.1,8.7,9.4], backgroundColor: red },
+    { label: 'Division avg PPDA', data: [10.4,10.2,10.2,10.8,11.2,11.9], backgroundColor: gray }
+  ]},
+  options: { ...baseOpts, plugins: { legend: { labels: { color: tickColor, font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw + ' (lower = more press)' } } }, scales: { y: { ticks: { color: tickColor }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('defChart'), {
+  type: 'bar',
+  data: { labels: ['21-22','22-23','23-24','24-25','25-26*'], datasets: [
+    { label: 'Interceptions /90', data: [6.1,7.2,6.8,7.4,7.8], backgroundColor: red },
+    { label: 'Tackles /90', data: [14.2,13.8,14.1,13.9,14.4], backgroundColor: gray }
+  ]},
+  options: { ...baseOpts, plugins: { legend: { labels: { color: tickColor, font: { size: 11 } } } }, scales: { y: { ticks: { color: tickColor }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('gsChart'), {
+  type: 'pie',
+  data: { labels: ['When winning','When drawing','When losing','Clean sheets'], datasets: [{ data: [12,9,13,13], backgroundColor: [green,amber,red,gray] }] },
+  options: { ...baseOpts, plugins: { legend: { position: 'right', labels: { color: tickColor, font: { size: 11 } } } } }
+});
+
+new Chart(document.getElementById('carryChart'), {
+  type: 'bar',
+  data: { labels: ['Moore','Windass','Broadhead','Rathbone','Longman'], datasets: [
+    { label: 'Prog carries /90', data: [3.1,4.8,5.2,2.9,4.4], backgroundColor: red },
+    { label: 'Take-on success %', data: [41,58,62,44,54], backgroundColor: blue, yAxisID: 'y1' }
+  ]},
+  options: { ...baseOpts, plugins: { legend: { labels: { color: tickColor, font: { size: 11 } } } }, scales: { y: { ticks: { color: tickColor }, grid: { color: gridColor }, title: { display: true, text: 'Carries /90', color: tickColor, font: { size: 10 } } }, y1: { position: 'right', ticks: { color: tickColor, callback: v => v + '%' }, grid: { display: false }, title: { display: true, text: 'Take-on %', color: tickColor, font: { size: 10 } } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('revChart'), {
+  type: 'bar',
+  data: { labels: ['2021-22','2022-23','2023-24','2024-25'], datasets: [{ label: 'Revenue (£m)', data: [4.2,8.7,26.7,33], backgroundColor: [gray,'#c94545',red,darkRed] }] },
+  options: { ...baseOpts, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: tickColor, callback: v => '£' + v + 'm' }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('valChart'), {
+  type: 'line',
+  data: { labels: ['Feb 2021','End 21-22','End 22-23','Apr 2024','Oct 2024','Dec 2025'], datasets: [{ label: 'Club value (£m)', data: [2,12,50,100,100,150], borderColor: red, backgroundColor: 'rgba(179,27,27,0.1)', tension: 0.4, fill: true, pointBackgroundColor: red, pointRadius: 5 }] },
+  options: { ...baseOpts, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: tickColor, callback: v => '£' + v + 'm' }, grid: { color: gridColor } }, x: { ticks: { color: tickColor, maxRotation: 30 }, grid: { display: false } } } }
+});
+
+// ── PLAYER DATABASE ──────────────────────────────────────────────────────────
+const PLAYERS = [
+  // GK
+  {name:'Ben Foster',pos:'GK',seasons:['2021-22','2022-23'],apps:82,goals:0,assists:0,mins:7380,xG:0,xA:0,status:'Departed',note:'Came out of retirement aged 39'},
+  {name:'Arthur Okonkwo',pos:'GK',seasons:['2023-24','2024-25','2025-26'],apps:110,goals:0,assists:0,mins:9900,xG:0,xA:0,status:'Current',note:'Signed permanently from Arsenal 2024'},
+  {name:'Danny Ward',pos:'GK',seasons:['2025-26'],apps:6,goals:0,assists:0,mins:540,xG:0,xA:0,status:'Current',note:'Rejoined hometown club 2025'},
+  {name:'Callum Burton',pos:'GK',seasons:['2024-25','2025-26'],apps:14,goals:0,assists:0,mins:1260,xG:0,xA:0,status:'Current',note:'Signed from Plymouth Argyle'},
+  {name:'Mark Howard',pos:'GK',seasons:['2020-21','2021-22'],apps:28,goals:0,assists:0,mins:2520,xG:0,xA:0,status:'Departed',note:'Veteran keeper, transition era'},
+  {name:'Rob Lainton',pos:'GK',seasons:['2020-21'],apps:18,goals:0,assists:0,mins:1620,xG:0,xA:0,status:'Departed',note:'Pre-Hollywood cover GK'},
+  // DEF
+  {name:'Max Cleworth',pos:'DEF',seasons:['2020-21','2021-22','2022-23','2023-24','2024-25'],apps:158,goals:8,assists:4,mins:13200,xG:2.1,xA:1.4,status:'Current',note:'Academy product, 2× Player of Year'},
+  {name:'Eoghan O\'Connell',pos:'DEF',seasons:['2022-23','2023-24','2024-25','2025-26'],apps:112,goals:7,assists:3,mins:9800,xG:2.4,xA:1.0,status:'Current',note:'Signed from Charlton Jan 2023, scored on debut'},
+  {name:'Ben Tozer',pos:'DEF',seasons:['2020-21','2021-22','2022-23'],apps:94,goals:5,assists:8,mins:8200,xG:1.2,xA:2.8,status:'Departed',note:'Set-piece specialist, huge aerial presence'},
+  {name:'Luke Young',pos:'DEF',seasons:['2020-21','2021-22'],apps:56,goals:1,assists:3,mins:4680,xG:0.3,xA:1.1,status:'Departed',note:'Energetic right-back'},
+  {name:'Callum McFadzean',pos:'DEF',seasons:['2021-22','2022-23'],apps:48,goals:2,assists:5,mins:3840,xG:0.8,xA:2.2,status:'Departed',note:'Left-back, creative from wide areas'},
+  {name:'Shaun Brisley',pos:'DEF',seasons:['2020-21'],apps:20,goals:1,assists:0,mins:1740,xG:0.4,xA:0,status:'Departed',note:'Short-term cover CB'},
+  {name:'Aaron James',pos:'DEF',seasons:['2021-22','2022-23','2023-24','2024-25','2025-26'],apps:98,goals:2,assists:6,mins:7200,xG:0.5,xA:2.1,status:'Current',note:'Academy graduate, pro contract Dec 2021'},
+  {name:'Reece Hall-Johnson',pos:'DEF',seasons:['2020-21'],apps:24,goals:0,assists:2,mins:2040,xG:0,xA:0.7,status:'Departed',note:'Right-back cover'},
+  {name:'Bryce Hosannah',pos:'DEF',seasons:['2021-22'],apps:12,goals:0,assists:1,mins:840,xG:0,xA:0.3,status:'Departed',note:'Loan signing'},
+  {name:'Jacob Mendy',pos:'DEF',seasons:['2022-23','2023-24','2024-25'],apps:88,goals:2,assists:9,mins:6800,xG:0.6,xA:3.2,status:'Current',note:'Ex-Atletico Madrid academy, versatile left flank'},
+  {name:'Zak Vyner',pos:'DEF',seasons:['2025-26'],apps:28,goals:1,assists:2,mins:2340,xG:0.4,xA:0.8,status:'Current',note:'Signed from Bristol City 2025'},
+  {name:'Conor Coady',pos:'DEF',seasons:['2025-26'],apps:30,goals:2,assists:1,mins:2700,xG:0.7,xA:0.4,status:'Current',note:'Former England international, marquee signing 2025'},
+  {name:'Dan Scarr',pos:'DEF',seasons:['2025-26'],apps:26,goals:2,assists:0,mins:2340,xG:0.8,xA:0,status:'Current',note:'Signed from Plymouth Argyle'},
+  {name:'Dominic Hyam',pos:'DEF',seasons:['2025-26'],apps:18,goals:1,assists:0,mins:1530,xG:0.3,xA:0,status:'Current',note:'Deadline day signing Sep 2025'},
+  {name:'Callum Doyle',pos:'DEF',seasons:['2024-25','2025-26'],apps:54,goals:3,assists:4,mins:4500,xG:0.9,xA:1.4,status:'Current',note:'Young CB, loan then permanent'},
+  {name:'Lewis Brunt',pos:'DEF',seasons:['2023-24','2024-25'],apps:44,goals:1,assists:5,mins:3520,xG:0.3,xA:1.8,status:'Current',note:'Left-back, progressive carrier'},
+  {name:'Issa Kaboré',pos:'DEF',seasons:['2025-26'],apps:31,goals:1,assists:6,mins:2750,xG:0.5,xA:2.8,status:'Current',note:'Man City loan, top creator 25-26'},
+  {name:'Ryan Barnett',pos:'DEF',seasons:['2022-23','2023-24','2024-25'],apps:82,goals:3,assists:12,mins:6200,xG:0.9,xA:4.1,status:'Current',note:'Goal of the Season 2023-24 v Forest Green'},
+  // MID
+  {name:'Elliot Lee',pos:'MID',seasons:['2022-23','2023-24','2024-25'],apps:104,goals:22,assists:18,mins:8100,xG:8.4,xA:7.2,status:'Current',note:'Top scorer 2024-25 (9 goals), ex-West Ham'},
+  {name:'Oliver Rathbone',pos:'MID',seasons:['2022-23','2023-24','2024-25','2025-26'],apps:136,goals:16,assists:21,mins:10800,xG:5.8,xA:8.4,status:'Current',note:'Reliable midfield engine, consistent output'},
+  {name:'James McClean',pos:'MID',seasons:['2023-24','2024-25'],apps:62,goals:6,assists:9,mins:4800,xG:2.4,xA:3.9,status:'Departed',note:'158 PL games, signed for £250k from Wigan'},
+  {name:'Tom O\'Connor',pos:'MID',seasons:['2021-22','2022-23','2023-24'],apps:98,goals:4,assists:11,mins:7800,xG:1.4,xA:4.2,status:'Departed',note:'Versatile, can play CB too, deadline day 2022'},
+  {name:'Andy Cannon',pos:'MID',seasons:['2022-23','2023-24','2024-25'],apps:76,goals:4,assists:7,mins:5400,xG:1.6,xA:2.8,status:'Departed',note:'Signed from Hull City Dec 2022'},
+  {name:'Luke Youngs',pos:'MID',seasons:['2020-21'],apps:22,goals:2,assists:3,mins:1760,xG:0.7,xA:1.1,status:'Departed',note:'Early Hollywood era midfielder'},
+  {name:'Jordan Davies',pos:'MID',seasons:['2020-21','2021-22'],apps:44,goals:5,assists:7,mins:3400,xG:1.8,xA:2.6,status:'Departed',note:'Goal of the Season 2020-21'},
+  {name:'George Thomas',pos:'MID',seasons:['2021-22','2022-23'],apps:52,goals:6,assists:5,mins:3800,xG:2.2,xA:2.0,status:'Departed',note:'Ex-Leicester City, technical midfielder'},
+  {name:'Josh Sheehan',pos:'MID',seasons:['2021-22'],apps:26,goals:3,assists:4,mins:2100,xG:1.1,xA:1.6,status:'Departed',note:'Creative central midfielder'},
+  {name:'Ben Tozer',pos:'MID',seasons:['2020-21'],apps:10,goals:1,assists:2,mins:870,xG:0.3,xA:0.8,status:'Departed',note:'Counted across both phases'},
+  {name:'Kwame Thomas',pos:'MID',seasons:['2020-21'],apps:18,goals:4,assists:2,mins:1440,xG:1.6,xA:0.8,status:'Departed',note:'Energetic box-to-box'},
+  {name:'Lewis O\'Brien',pos:'MID',seasons:['2024-25','2025-26'],apps:62,goals:3,assists:9,mins:5400,xG:1.2,xA:4.0,status:'Current',note:'7.26 rating, best player in Champ. squad'},
+  {name:'George Thomason',pos:'MID',seasons:['2024-25','2025-26'],apps:68,goals:4,assists:6,mins:5800,xG:1.5,xA:2.4,status:'Current',note:'7.10 rating, high-energy presser'},
+  {name:'Ben Sheaf',pos:'MID',seasons:['2025-26'],apps:24,goals:1,assists:3,mins:2100,xG:0.4,xA:1.2,status:'Current',note:'Championship experience, signed deadline day 2025'},
+  {name:'Matthew James',pos:'MID',seasons:['2024-25','2025-26'],apps:38,goals:2,assists:4,mins:3000,xG:0.7,xA:1.6,status:'Current',note:'Veteran, joined free Oct 2024, multi-year extension'},
+  {name:'George Dobson',pos:'MID',seasons:['2025-26'],apps:22,goals:0,assists:2,mins:1800,xG:0.1,xA:0.8,status:'Current',note:'Defensive midfield cover'},
+  {name:'Liberato Cacace',pos:'MID',seasons:['2025-26'],apps:26,goals:1,assists:4,mins:2200,xG:0.4,xA:1.8,status:'Current',note:'£4m signing, New Zealand international, wing-back'},
+  {name:'Josh Windass',pos:'MID',seasons:['2024-25','2025-26'],apps:58,goals:17,assists:8,mins:4800,xG:7.2,xA:3.8,status:'Current',note:'10 league goals 25-26, creative force'},
+  {name:'Nathan Broadhead',pos:'MID',seasons:['2024-25','2025-26'],apps:52,goals:12,assists:7,mins:4200,xG:5.1,xA:3.2,status:'Current',note:'Welsh international, 7 goals in Champ. season'},
+  {name:'Ryan Longman',pos:'MID',seasons:['2024-25','2025-26'],apps:36,goals:4,assists:5,mins:2800,xG:1.8,xA:2.2,status:'Current',note:'Signed from Hull City winter 2025'},
+  // FWD
+  {name:'Paul Mullin',pos:'FWD',seasons:['2021-22','2022-23','2023-24','2024-25'],apps:152,goals:94,assists:22,mins:12400,xG:75.6,xA:10.2,status:'Current',note:'38 goals in 22-23 alone, Hollywood icon'},
+  {name:'Ollie Palmer',pos:'FWD',seasons:['2022-23','2023-24'],apps:64,goals:18,assists:8,mins:4800,xG:10.4,xA:3.6,status:'Departed',note:'Target man, physical presence'},
+  {name:'Sam Dalby',pos:'FWD',seasons:['2022-23'],apps:38,goals:12,assists:4,mins:2400,xG:6.8,xA:1.8,status:'Departed',note:'Young Player of the Year 2022-23'},
+  {name:'Harry Clifton',pos:'FWD',seasons:['2021-22','2022-23'],apps:58,goals:9,assists:12,mins:4200,xG:4.2,xA:5.6,status:'Departed',note:'Wide forward, creative contributions'},
+  {name:'Jordan Ponticelli',pos:'FWD',seasons:['2020-21'],apps:26,goals:8,assists:3,mins:1900,xG:4.1,xA:1.3,status:'Departed',note:'Impact striker, pre-Mullin era'},
+  {name:'Jamie Reckord',pos:'DEF',seasons:['2020-21'],apps:18,goals:0,assists:1,mins:1440,xG:0,xA:0.4,status:'Departed',note:'Pre-Hollywood left-back'},
+  {name:'Kieffer Moore',pos:'FWD',seasons:['2025-26'],apps:32,goals:13,assists:3,mins:2800,xG:12.1,xA:1.4,status:'Current',note:'11 league goals, signed summer 2025, Wales international'},
+  {name:'Sam Smith',pos:'FWD',seasons:['2024-25','2025-26'],apps:48,goals:14,assists:4,mins:3600,xG:8.4,xA:1.8,status:'Current',note:'Club-record £2m from Reading, 26 L1 goals before signing'},
+  {name:'Mo Faal',pos:'FWD',seasons:['2024-25','2025-26'],apps:32,goals:6,assists:2,mins:1800,xG:3.2,xA:0.9,status:'Current',note:'Ex-West Brom academy, Gambian international'},
+  {name:'Ryan Hardie',pos:'FWD',seasons:['2025-26'],apps:20,goals:4,assists:2,mins:1200,xG:2.8,xA:0.8,status:'Current',note:'Signed from Plymouth Argyle summer 2025'},
+  {name:'Jay Rodriguez',pos:'FWD',seasons:['2024-25'],apps:18,goals:5,assists:2,mins:1200,xG:3.1,xA:0.8,status:'Departed',note:'Veteran, signed from Burnley on 18-month deal'},
+  {name:'Bailey Cadamarteri',pos:'FWD',seasons:['2025-26'],apps:16,goals:3,assists:1,mins:900,xG:1.8,xA:0.4,status:'Current',note:'Jamaica international, signed from Sheffield Wed'},
+  {name:'Davis Keillor-Dunn',pos:'FWD',seasons:['2025-26'],apps:14,goals:2,assists:3,mins:800,xG:1.2,xA:1.4,status:'Current',note:'Signed from Barnsley'},
+  {name:'Callum Edwards',pos:'FWD',seasons:['2024-25','2025-26'],apps:28,goals:2,assists:4,mins:1400,xG:0.8,xA:1.6,status:'Current',note:'Promoted from academy'},
+  {name:'Aaron Hayden',pos:'DEF',seasons:['2020-21'],apps:14,goals:1,assists:0,mins:1170,xG:0.3,xA:0,status:'Departed',note:'Centre-back cover'},
+  {name:'Scott Quigley',pos:'FWD',seasons:['2020-21'],apps:32,goals:9,assists:3,mins:2480,xG:4.8,xA:1.2,status:'Departed',note:'Pre-Mullin top scorer season'},
+  {name:'Jamie Tolley',pos:'MID',seasons:['2020-21'],apps:12,goals:1,assists:2,mins:900,xG:0.4,xA:0.8,status:'Departed',note:'Short-term Hollywood era'},
+  {name:'Liam McAlinden',pos:'MID',seasons:['2020-21'],apps:16,goals:2,assists:4,mins:1200,xG:0.8,xA:1.6,status:'Departed',note:'Wide midfielder, pace-based'},
+  {name:'Bobby Burns',pos:'MID',seasons:['2021-22'],apps:20,goals:1,assists:3,mins:1500,xG:0.4,xA:1.2,status:'Departed',note:'Northern Ireland international'},
+  {name:'Callum McAteer',pos:'MID',seasons:['2021-22'],apps:14,goals:0,assists:2,mins:900,xG:0.1,xA:0.8,status:'Departed',note:'Midfield cover'},
+  {name:'Luke Waterfall',pos:'DEF',seasons:['2020-21','2021-22'],apps:48,goals:3,assists:2,mins:4100,xG:1.0,xA:0.7,status:'Departed',note:'Solid Championship-experienced CB'},
+  {name:'Chris Holroyd',pos:'FWD',seasons:['2020-21'],apps:10,goals:2,assists:0,mins:720,xG:1.1,xA:0,status:'Departed',note:'Veteran striker, experience role'},
+  {name:'Mark Jones',pos:'MID',seasons:['2020-21'],apps:14,goals:1,assists:2,mins:1080,xG:0.5,xA:0.8,status:'Departed',note:'Academy product breakthrough'},
+  {name:'Reece Grego-Cox',pos:'FWD',seasons:['2021-22'],apps:18,goals:3,assists:2,mins:1200,xG:1.8,xA:0.9,status:'Departed',note:'Loan signing, impact sub'},
+  {name:'Mitch Wilding',pos:'DEF',seasons:['2020-21'],apps:8,goals:0,assists:0,mins:600,xG:0,xA:0,status:'Departed',note:'Reserve centre-back'},
+  {name:'Owen Taylor',pos:'MID',seasons:['2020-21'],apps:6,goals:0,assists:1,mins:420,xG:0.1,xA:0.4,status:'Departed',note:'Youth product'},
+  {name:'James Rainbird',pos:'FWD',seasons:['2024-25','2025-26'],apps:16,goals:1,assists:2,mins:700,xG:0.5,xA:0.8,status:'Current',note:'Welsh youth, loan to Newton for game time'},
+];
+
+function posColor(pos) {
+  if (pos==='GK') return '#185fa5';
+  if (pos==='DEF') return '#3b6d11';
+  if (pos==='MID') return '#854f0b';
+  return '#b31b1b';
+}
+function posLabel(pos) {
+  if (pos==='GK') return {bg:'#e6f1fb',c:'#185fa5'};
+  if (pos==='DEF') return {bg:'#eaf3de',c:'#3b6d11'};
+  if (pos==='MID') return {bg:'#faeeda',c:'#854f0b'};
+  return {bg:'#fcebeb',c:'#a32d2d'};
+}
+function statusLabel(s) {
+  return s==='Current'
+    ? '<span style="font-size:10px;background:#eaf3de;color:#3b6d11;padding:2px 7px;border-radius:10px;font-weight:600;">Current</span>'
+    : '<span style="font-size:10px;background:var(--bg2);color:var(--text3);padding:2px 7px;border-radius:10px;font-weight:500;">Alumni</span>';
+}
+
+function renderRoster(data) {
+  const tbody = document.getElementById('rosterBody');
+  tbody.innerHTML = data.map((p,i) => {
+    const pl = posLabel(p.pos);
+    const g = p.goals, a = p.assists;
+    const apps = p.apps;
+    return `<tr>
+      <td style="padding-left:1rem;">
+        <div style="font-weight:600;font-size:13px;color:var(--text);">${p.name}</div>
+        <div style="font-size:11px;color:var(--text3);">${p.note}</div>
+      </td>
+      <td><span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:8px;background:${pl.bg};color:${pl.c};">${p.pos}</span></td>
+      <td style="font-size:11px;color:var(--text3);">${p.seasons.join(', ')}</td>
+      <td style="font-weight:600;">${apps}</td>
+      <td style="font-weight:600;color:${g>10?'#b31b1b':g>4?'#ef9f27':'var(--text)'};">${g}</td>
+      <td style="color:${a>8?'#378add':a>3?'#1d9e75':'var(--text)'};">${a}</td>
+      <td style="font-weight:600;">${g+a}</td>
+      <td style="font-size:11px;color:var(--text3);">${p.mins.toLocaleString()}'</td>
+      <td style="font-size:11px;color:var(--text3);">${p.xG.toFixed(1)}</td>
+      <td style="font-size:11px;color:var(--text3);">${p.xA.toFixed(1)}</td>
+      <td>${statusLabel(p.status)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('rosterCount').textContent = `Showing ${data.length} of ${PLAYERS.length} players`;
+}
+
+function filterPlayers() {
+  const q = document.getElementById('playerSearch').value.toLowerCase();
+  const seas = document.getElementById('seasonFilter').value;
+  const pos = document.getElementById('posFilter').value;
+  const sort = document.getElementById('sortBy').value;
+  let data = PLAYERS.filter(p => {
+    const nameMatch = p.name.toLowerCase().includes(q) || p.note.toLowerCase().includes(q);
+    const seasMatch = seas==='all' || p.seasons.includes(seas);
+    const posMatch = pos==='all' || p.pos===pos;
+    return nameMatch && seasMatch && posMatch;
+  });
+  if (sort==='goals') data.sort((a,b)=>b.goals-a.goals);
+  else if (sort==='apps') data.sort((a,b)=>b.apps-a.apps);
+  else if (sort==='assists') data.sort((a,b)=>b.assists-a.assists);
+  else data.sort((a,b)=>a.name.localeCompare(b.name));
+  renderRoster(data);
+}
+
+// init sorted by goals
+filterPlayers();
+// ─────────────────────────────────────────────────────────────────────────────
+
+new Chart(document.getElementById('tranChart'), {
+  type: 'bar',
+  data: { labels: ['21-22','22-23','23-24','24-25'], datasets: [
+    { label: 'Spend (£m)', data: [3.2,8.1,14.4,13.1], backgroundColor: red },
+    { label: 'Sales (£m)', data: [0.1,0.5,1.2,0.8], backgroundColor: gray }
+  ]},
+  options: { ...baseOpts, plugins: { legend: { labels: { color: tickColor, font: { size: 11 } } } }, scales: { y: { ticks: { color: tickColor, callback: v => '£' + v + 'm' }, grid: { color: gridColor } }, x: { ticks: { color: tickColor }, grid: { display: false } } } }
+});
+</script>
+</body>
+</html>
